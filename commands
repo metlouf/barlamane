@@ -16,3 +16,18 @@ q(func : has(name)){
 	}
 }
 }
+
+{
+  q(func: has(work_at))@cascade{
+    						uid
+                name
+                party
+                work_at @filter(eq(term, "2011_2016")){
+                    commission{
+                        uid
+                        name
+                    }
+                    term
+                }
+            }
+}

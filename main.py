@@ -6,7 +6,6 @@ from enum import Enum, auto
 
 from check_data import extract_commissions_from_deputies, extract_commissions_from_laws, extract_ministry_from_questions, process_commission
 
-
 class DgraphConnection:
     """Manages the connection to Dgraph database."""
     def __init__(self, host='localhost', port='9080'):
@@ -40,10 +39,12 @@ class DgraphConnection:
         deputy: [uid] .
         law: [uid] .
         question: [uid] .
-        commission: [uid] .
+        commission: uid .
         ministry: uid .
-        work_at: uid .
+        work_at: [uid] .
         developed_by : uid .
+        ask : [uid] .
+        to : uid .
 
         type Deputy {
             name
@@ -72,6 +73,13 @@ class DgraphConnection:
             link
             created_at
             developed_by
+        }
+
+        type Question {
+            title
+            to
+            created_at
+            state
         }
         """
         return self.client.alter(pydgraph.Operation(schema=schema))
@@ -121,7 +129,37 @@ class Law:
         }
         
         if self.commission:
-            print(self.commission.to_dict())
+            #print(self.commission.to_dict())
+            law_dict['developed_by'] = self.commission.to_dict()
+        
+        if self.uid:
+            law_dict['uid'] = self.uid
+        
+        return law_dict
+        
+    def update_state(self, new_state):
+        """
+        Update the state of the law.
+        
+        :param new_state: New state for the law
+        """
+        self.state = new_state
+
+    def to_dict(self):
+        """
+        Convert Law object to a dictionary for Dgraph mutation.
+        
+        :return: Dictionary representation of the Law
+        """
+        law_dict = {
+            'dgraph.type': 'Law',
+            'title': self.title,
+            'link': self.link,
+            'created_at': self.created_at.isoformat()
+        }
+        
+        if self.commission:
+            #print(self.commission.to_dict())
             law_dict['developed_by'] = self.commission.to_dict()
         
         if self.uid:
@@ -129,6 +167,43 @@ class Law:
         
         return law_dict
 
+class Question:
+    """Represents a Question to a ministry asked by deputy"""
+    def __init__(self, title, ministry, state):
+        """
+        """
+        self.uid = None
+        self.title = title
+        self.ministry = ministry
+        self.state = state
+        self.created_at = datetime.datetime.now()
+
+    def to_dict(self):
+        """
+        Convert Q object to a dictionary for Dgraph mutation.
+        
+        :return: Dictionary representation of the Law
+        """
+        q_dict = {
+            'dgraph.type': 'Question',
+            'title': self.title,
+            'state': self.state,
+            'created_at': self.created_at.isoformat(),
+            'to': self.ministry.to_dict()
+        }
+        
+        if self.uid:
+            q_dict['uid'] = self.uid
+        
+        return q_dict
+        
+    def update_state(self, new_state):
+        """
+        Update the state of the law.
+        
+        :param new_state: New state for the law
+        """
+        self.state = new_state
 
 class Commission:
     """Represents a legislative commission."""
@@ -187,7 +262,7 @@ class PoliticalRepresentative:
 
 class Deputy(PoliticalRepresentative):
     """Represents a Deputy in the political system."""
-    def __init__(self, name, party):
+    def __init__(self, name, party,uid = None):
         """
         Initialize a Deputy.
         
@@ -196,14 +271,17 @@ class Deputy(PoliticalRepresentative):
         """
         super().__init__(name, party)
         self.commissions = []
+        self.terms = []
+        self.uid = uid
 
-    def add_commission(self, commission):
+    def add_commission(self, commission,term):
         """
         Add a commission to the deputy.
         
         :param commission: Commission to add
         """
         self.commissions.append(commission)
+        self.terms.append(term)
 
     def to_dict(self):
         """
@@ -211,12 +289,20 @@ class Deputy(PoliticalRepresentative):
         
         :return: Dictionary representation of the Deputy
         """
+
         deputy_dict = {
-            'dgraph.type': 'Deputy',
-            'name': self.name,
-            'party': self.party,
-            'work_at': [commission.to_dict() for commission in self.commissions]
-        }
+                'dgraph.type': 'Deputy',
+                'name': self.name,
+                'party': self.party,
+                'work_at' : [{ 'commission' : self.commissions[i].to_dict(),
+                                'term' :  self.terms[i] } for i in range(len(self.commissions))]
+                
+            }
+
+        #if len(self.commissions)>0 :
+        #    commission = self.commissions[0]
+        #    deputy_dict['work_at'] = commission.to_dict()
+            
         
         if self.uid:
             deputy_dict['uid'] = self.uid
@@ -305,26 +391,12 @@ class DgraphPoliticalSystemManager:
         """
         txn = self.connection.client.txn()
         try:
-            # Mutation to create representative and associated entities
-            if isinstance(representative, Deputy):
-                # Create commissions first
-                for commission in representative.commissions:
-                    if commission.uid == None :
-                        commission_response = txn.mutate(set_obj=commission.to_dict())
-                        commission.uid = list(dict(commission_response.uids).values())[0]
-            
-            elif isinstance(representative, Minister):
-                # Create ministry
-                if representative.ministry.uid == None :
-                    ministry_response = txn.mutate(set_obj=representative.ministry.to_dict())
-                    representative.ministry.uid = list(dict(ministry_response.uids).values())[0]
-
             # Create the representative
             response = txn.mutate(set_obj=representative.to_dict())
             txn.commit()
             
             # Update representative's UID
-            representative.uid = list(dict(response.uids).values())[0]
+            #representative.uid = list(dict(response.uids).values())[0]
             
             return representative.uid
 
@@ -350,9 +422,19 @@ class DgraphPoliticalSystemManager:
                 name
                 party
                 type
-                commission{
-                    uid
-                    name
+                work_at{
+                    commission{
+                        uid
+                        name
+                    }
+                    term
+                }
+                ask{
+                    to{
+                        uid
+                        name
+                    }
+                    title
                 }
             }
         }"""
@@ -460,51 +542,33 @@ def old_main():
     ## Close connection
     connection.close()
 
-def main():
-    # Create Dgraph connection
-    connection = DgraphConnection()
+def create_deputies(pol_manager,dict_commissions):
     
-    # Drop all existing data and set schema
-    connection.drop_all()
-    connection.set_schema()
-    
-    # Create political system manager
-    pol_manager = DgraphPoliticalSystemManager(connection)
-    
-    # Create a commissions
-    commissions = set.union(extract_commissions_from_deputies(),extract_commissions_from_laws())
+    for term in ['2011_2016','2016_2021','2021_2026'] :
+        with open('data/parliamentarians_arabic_%s.json'%term, 'r') as file:
+            data = json.load(file)
 
-    dict_commissions = {}
+        for deputy in data:
+            deputy_results = pol_manager.query_representative(deputy['name'], 'Deputy')
 
-    for c in commissions : 
-        dict_commissions[c] = Commission(c)
-
-    # Create Ministries
-
-    ministries = extract_ministry_from_questions()
-    dict_ministry = {}
-    for c in ministries : 
-        dict_ministry[c] = Ministry(c)
-
-    ## Create Deputies
-    
-    with open('data/parliamentarians_arabic_2016_2021.json', 'r') as file:
-        data = json.load(file)
-
-    for deputy in data:
-        deputy_g = Deputy(deputy['name'], deputy['party'])
-        if 'function' in deputy:
-            if "فريق" in deputy['function'] :
-                pass
+            if len(deputy_results)>0 :
+                deputy_g = Deputy(deputy['name'], deputy['party'],deputy_results[0]['uid'])
             else :
-                commission_obj = dict_commissions[process_commission(deputy['function'])]
-                deputy_g.add_commission(commission_obj)
-        pol_manager.create_representative(deputy_g)
-    
-    ## Add deputies to commission
+                deputy_g = Deputy(deputy['name'], deputy['party'])
 
-    ##
-    ### Create laws in the commission
+            if 'function' in deputy:
+                if "فريق" in deputy['function'] :
+                    deputy_g.add_commission(dict_commissions['Nothing'],term)
+                else :
+                    commission_obj = dict_commissions[process_commission(deputy['function'])]
+                    deputy_g.add_commission(commission_obj,term)
+
+            pol_manager.create_representative(deputy_g)
+            if len(deputy_results)>0 :
+                deputy_results = pol_manager.query_representative(deputy['name'], 'Deputy')
+                #print(deputy_results)
+
+def create_laws(pol_manager,dict_commissions):
     with open('data/laws_arabic_version.json', 'r') as file:
         data = json.load(file)
     
@@ -537,25 +601,91 @@ def main():
             law_type='textes_de_loi',
             link=project['url']
         )
+def create_questions(pol_manager,dict_ministry):
 
+    for i in range(1,6):
+        with open('data/questions_%d.json'%i, 'r') as file:
+            data = json.load(file)
+        for q in data :
+
+            ministry = dict_ministry[q['to']]
+            question = Question(q['title'],ministry,q['state'])
+
+            deputy_results = pol_manager.query_representative(q['author'], 'Deputy')
+            if len(deputy_results)>0 : 
+                txn = pol_manager.connection.client.txn()
+                deputy = deputy_results[0]
+                mutation = {'uid':deputy['uid'],
+                            'ask' : question.to_dict()
+                }
+                mut_rep = txn.mutate(set_obj=mutation)
+                question.uid = list(dict(mut_rep.uids).values())[0]
+                txn.commit()
+                txn.discard()
+            
+            deputy_results = pol_manager.query_representative(q['author'], 'Deputy')
+
+
+
+
+
+
+def main():
+    # Create Dgraph connection
+    connection = DgraphConnection()
+    
+    # Drop all existing data and set schema
+    connection.drop_all()
+    connection.set_schema()
+    
+    # Create political system manager
+    pol_manager = DgraphPoliticalSystemManager(connection)
+
+    
+    # Create a commissions
+    commissions = set.union(extract_commissions_from_deputies(),extract_commissions_from_laws())
+    commissions.add('Nothing')
+
+    dict_commissions = {}
+    for c in commissions : 
+        txn = pol_manager.connection.client.txn()
+        dict_commissions[c] = Commission(c)
+        commission_response = txn.mutate(set_obj=dict_commissions[c].to_dict())
+        #print(c,list(dict(commission_response.uids).values())[0])
+        dict_commissions[c].uid = list(dict(commission_response.uids).values())[0]
+        txn.commit()
+        txn.discard()
+    #print(dict_commissions["Nothing"].uid)
+    # Create Ministries
+
+    ministries = extract_ministry_from_questions()
+    dict_ministry = {}
+    for c in ministries :
+        txn = pol_manager.connection.client.txn()
+        dict_ministry[c] = Ministry(c)
+        ministry_response = txn.mutate(set_obj=dict_ministry[c].to_dict())
+        dict_ministry[c].uid = list(dict(ministry_response.uids).values())[0]
+        txn.commit()
+        txn.discard()
+
+
+    ## Create Deputies
+    create_deputies(pol_manager,dict_commissions)
+    
+    ### Create laws in the commission
+    create_laws(pol_manager,dict_commissions)
 
     ## Create questions
-    
+    create_questions(pol_manager,dict_ministry)
 
 
     ## Query representatives
 
 
-    #
-
-    #
     ## Close connection
     connection.close()
 
 
 if __name__ == '__main__':
-    try:
-        main()
-        print('DONE!')
-    except Exception as e:
-        print('Error: {}'.format(e))
+    main()
+    print('DONE!')

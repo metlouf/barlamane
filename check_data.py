@@ -1,11 +1,15 @@
 import json
 import re
 
+DEBUG = False
+
 def process_commission(word):
     
     result = word.replace("لجنة","").replace("و ","و").replace("لإ","لا").strip()
     if "عدل" in word:
         return "العدل"
+    if "مراقبة المالية العامة" in word :
+        return "مراقبة المالية العامة"
     if len(result)>40 :
         return result[:30].split(" ")[0]
     #result = re.sub("الخارجية", 'الخارجية*', result)
@@ -38,32 +42,35 @@ def extract_commissions_from_laws() :
     for a in list(commissions):
         print(a)
 
-def extract_commissions_from_deputies() : 
-    with open('data/parliamentarians_arabic_2016_2021.json', 'r') as file:
-        data = json.load(file)
-
-    # Extract the set of commissions without redundancy
+def extract_commissions_from_deputies() :
+    
     commissions = set()
-    for deputy in data:
-        if 'function' in deputy:
-            if "فريق" in deputy['function'] :
-                pass
-            else :
-                commissions.add(process_commission(deputy['function']))
+    for term in ['2011_2016','2016_2021','2021_2026'] :
+        with open('data/parliamentarians_arabic_%s.json'%term, 'r') as file:
+            data = json.load(file)
 
-    # Print the set of commissions
+        # Extract the set of commissions without redundancy
+        for deputy in data:
+            if 'function' in deputy:
+                if "فريق" in deputy['function'] :
+                    pass
+                else :
+                    commissions.add(process_commission(deputy['function']))
+
+        # Print the set of commissions
     return commissions
     for a in list(commissions):
         print(a)
 
-def extract_ministry_from_questions() : 
-    with open('data/questions.json', 'r') as file:
-        data = json.load(file)
-
-    # Extract the set of commissions without redundancy
+def extract_ministry_from_questions() :
     ministy = set()
-    for q in data:
-        ministy.add(q['to'])
+    for i in range(1,6):
+        with open('data/questions_%i.json'%i, 'r') as file:
+            data = json.load(file)
+
+        # Extract the set of commissions without redundancy
+        for q in data:
+            ministy.add(q['to'])
 
     # Print the set of commissions
     return ministy
@@ -71,29 +78,38 @@ def extract_ministry_from_questions() :
         print(a)
 
 #check_laws()
+#extract_commissions_from_laws()
 #print("(#################)")
-#check_deputies()
-#print("(#################)")
-#check_questions()
+#extract_commissions_from_deputies()
+#print(("#################"))
+#extract_ministry_from_questions()
+
 
 def check_inter() : 
-    with open('data/questions.json', 'r') as file:
-        data_q = json.load(file)
 
-    with open('data/parliamentarians_arabic_2016_2021.json', 'r') as file:
-        data_d = json.load(file)
-
-    # Extract the set of commissions without redundancy
     hq = set()
-    for q in data_q:
-        hq.add(q['author'])
+    for i in range(1,6):
+        with open('data/questions_%d.json'%i, 'r') as file:
+            data_q = json.load(file)
+            for q in data_q:
+                hq.add(q['author'])
+    #print("##",len(hq))
 
-    # Print the set of commissions
     hd= set()
-    for d in data_d:
-        hd.add(d['name'])
+
+    for term in ['2011_2016','2016_2021','2021_2026'] :
+        with open('data/parliamentarians_arabic_%s.json'%term, 'r') as file:
+            data_d = json.load(file)
+
+        for d in data_d:
+            hd.add(d['name'])
     
     for a in list(set.intersection(hq,hd)):
         print(a)
+    #print("##",len(hd))
+    #print("################# Common",len(set.intersection(hq,hd)))
+    for a in hq :
+        if a not in hd:
+            print(a)
 
 #check_inter()
