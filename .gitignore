@@ -2,4 +2,3 @@
 *.csv
 *.xlsx
 *cache*
-data/*
