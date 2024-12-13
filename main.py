@@ -3,6 +3,7 @@ import datetime
 import json
 import pydgraph
 from enum import Enum, auto
+from tqdm import tqdm
 
 from check_data import extract_commissions_from_deputies, extract_commissions_from_laws, extract_ministry_from_questions, process_commission
 
@@ -548,7 +549,7 @@ def create_deputies(pol_manager,dict_commissions):
         with open('data/parliamentarians_arabic_%s.json'%term, 'r') as file:
             data = json.load(file)
 
-        for deputy in data:
+        for deputy in tqdm(data):
             deputy_results = pol_manager.query_representative(deputy['name'], 'Deputy')
 
             if len(deputy_results)>0 :
@@ -572,7 +573,7 @@ def create_laws(pol_manager,dict_commissions):
     with open('data/laws_arabic_version.json', 'r') as file:
         data = json.load(file)
     
-    for project in data['projets_de_loi']:
+    for project in tqdm(data['projets_de_loi']):
         commission_obj = dict_commissions[process_commission(project['readings'][0]['commission'])]
         pol_manager.create_law_in_commission(
             commission_obj,
@@ -582,7 +583,7 @@ def create_laws(pol_manager,dict_commissions):
         )
     
     
-    for project in data['propositions_de_loi']:
+    for project in tqdm(data['propositions_de_loi']):
         if len(project['readings'])>0 : 
             if 'commission' in project['readings'][0]:          
                 commission_obj = dict_commissions[process_commission(project['readings'][0]['commission'])]
@@ -593,7 +594,7 @@ def create_laws(pol_manager,dict_commissions):
                     link=project['url']
                 )
     
-    for project in data['textes_de_loi']:
+    for project in tqdm(data['textes_de_loi']):
         commission_obj = dict_commissions[process_commission(project['commission'])]
         pol_manager.create_law_in_commission(
             commission_obj,
@@ -606,7 +607,7 @@ def create_questions(pol_manager,dict_ministry):
     for i in range(1,6):
         with open('data/questions_%d.json'%i, 'r') as file:
             data = json.load(file)
-        for q in data :
+        for q in tqdm(data) :
 
             ministry = dict_ministry[q['to']]
             question = Question(q['title'],ministry,q['state'])
