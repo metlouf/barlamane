@@ -1,0 +1,63 @@
+##### Query Deputy from one mandat 
+
+{
+  deputy(func: has(name)) @cascade{
+    uid
+    name
+    party
+    work_at @filter(eq(term,"2016_2021")) {
+      commission {
+        uid
+        name
+      }
+      uid
+      term
+    }
+  }
+}
+
+#### Query all the old guys
+
+{
+  deputy(func: has(name)) @filter(eq(count(work_at),3)) {
+    name
+    party
+    work_at {
+      commission {
+        name
+      }
+      term
+    }
+    count(work_at)
+  }
+}
+
+
+### Query Laws from One commission
+
+{
+  q(func: has(developed_by))@cascade {
+    title
+    developed_by @filter(eq(name, "الخارجية")) {
+      name 
+    }
+    }
+}
+
+#### Query Questions
+
+{
+  q(func: has(ask)) @cascade{
+    name
+    party
+    ask @cascade{
+      to @filter(eq(name,"التجهيز والماء")){
+        name
+      }
+      title
+    }
+  }
+}
+
+
+

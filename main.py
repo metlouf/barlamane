@@ -199,9 +199,7 @@ class Question:
         return q_dict
         
     def update_state(self, new_state):
-        """
-        Update the state of the law.
-        
+        """        
         :param new_state: New state for the law
         """
         self.state = new_state
@@ -479,69 +477,6 @@ class DgraphPoliticalSystemManager:
             txn.discard()
         finally:
             txn.discard()
-
-
-def old_main():
-    # Create Dgraph connection
-    connection = DgraphConnection()
-    
-    # Drop all existing data and set schema
-    connection.drop_all()
-    connection.set_schema()
-    
-    # Create political system manager
-    pol_manager = DgraphPoliticalSystemManager(connection)
-    
-    # Create a commissions
-    budget_commission = Commission('Budget and Finance Commission')
-
-    # Create Ministries
-    education_ministry = Ministry('Ministry of Education')
-    
-    ## Create Deputies
-    deputy1 = Deputy('John Smith', 'Progressive Party')
-    deputy2 = Deputy('Emily Johnson', 'Liberal Party')
-    #
-    
-    ## Add deputies to commission
-    deputy1.add_commission(budget_commission)
-    deputy2.add_commission(budget_commission)
-    ##
-    ### Create laws in the commission
-    ##
-    ### Create a Ministry
-    
-    
-    ## Create a Minister
-    minister1 = Minister('Sarah Williams', 'Conservative Party', education_ministry)
-    
-    ## Create representatives in database
-    pol_manager.create_representative(deputy1)
-    pol_manager.create_representative(deputy2)
-    
-    ## Create laws
-    education_funding_law = pol_manager.create_law_in_commission(
-        budget_commission,
-        title='Education Funding Act',
-        law_type='Fiscal Policy',
-        link='https://example.com/education-funding-law'
-    )
-
-    ## Create questions
-    
-
-
-    ## Query representatives
-    deputy_results = pol_manager.query_representative('John Smith', 'Deputy')
-    minister_results = pol_manager.query_representative('Sarah Williams', 'Minister')
-
-
-    #
-    print('Deputies:', json.dumps(deputy_results, indent=2))
-    print('Ministers:', json.dumps(minister_results, indent=2))
-    #
-    ## Close connection
-    connection.close()
 
 def create_deputies(pol_manager,dict_commissions):
     

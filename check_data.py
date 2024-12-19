@@ -4,6 +4,7 @@ import re
 DEBUG = False
 
 def process_commission(word):
+    "Simple Stemmer for commissions"
     
     result = word.replace("لجنة","").replace("و ","و").replace("لإ","لا").strip()
     if "عدل" in word:
