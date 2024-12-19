@@ -75,7 +75,6 @@ More details in the [presentation](report.pdf).
 - Replace some string with @lang to manage more complex queries in long texts (like laws and questions) like a search engine.
 
 - Manage homonyms.
-- 
 
 ## Related Projects
 
